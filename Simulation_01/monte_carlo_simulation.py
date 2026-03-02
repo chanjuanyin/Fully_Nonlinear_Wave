@@ -153,16 +153,15 @@ def QC(code, a):
     form = code[0]
     alpha_1 = code[1]
     j = code[2]
-    if form == 1:
-        if alpha_1==0: # if \alpha_1=0, then
+    if form == 0:
             return 1, [2, 0, 0], None, None # Return \{(1, f, \emptyset)\}
-        elif alpha_1 > 0: # i which is the first index such that \alpha_i\neq 0 is 1
-            while True: # accept-reject sampling
-                beta_1 = torch.randint(0, alpha_1, (1,)).item() # uniform random integer in [0, alpha_1-1] inclusive
-                gamma_1 = (alpha_1 - beta_1) / alpha_1
-                if torch.rand(1).item() <= abs(gamma_1):
-                    break
-            return gamma_1, [2, beta_1, 1], [1, alpha_1 - beta_1, -1], None # Return \{( gamma_1, \frac{1}{\beta!} \partial^{\beta} \circ f^{(1)}, \frac{1}{(alpha_1-beta_1)!} \partial^{\alpha-\beta} )\}
+    elif form == 1:
+        while True: # accept-reject sampling
+            beta_1 = torch.randint(0, alpha_1, (1,)).item() # uniform random integer in [0, alpha_1-1] inclusive
+            gamma_1 = (alpha_1 - beta_1) / alpha_1
+            if torch.rand(1).item() <= abs(gamma_1):
+                break
+        return gamma_1, [2, beta_1, 1], [1, alpha_1 - beta_1, -1], None # Return \{( gamma_1, \frac{1}{\beta!} \partial^{\beta} \circ f^{(1)}, \frac{1}{(alpha_1-beta_1)!} \partial^{\alpha-\beta} )\}
     elif form == 2:
         m = torch.randint(1, 4, (1,)).item() # uniform random integer in [1, 3] inclusive
         beta_1 = torch.randint(0, alpha_1 + 1, (1,)).item() # uniform random integer in [0, alpha_1] inclusive
@@ -239,7 +238,7 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
 def monte_carlo_simulation(phi, psi, f, z, t, a, lambda_, num_samples=1000):
     # Help me implement a multi-threading version of this function to speed up the simulation
     from concurrent.futures import ThreadPoolExecutor
-    code = [1, 0, 0, -1] # start with the code representing the identity operator Id
+    code = [0, 0, 0, -1] # start with the code representing the identity operator Id
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(branching1D, code, phi, psi, f, z, t, a, lambda_) for _ in range(num_samples)]
         results = [future.result() for future in futures]
@@ -265,7 +264,7 @@ if __name__ == "__main__":
     psi = lambda x: (4/3)*(torch.exp(2*x/3) / (1 + torch.exp(4*x/3))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
     f = lambda u: -(1/3)*torch.sin(u) # example nonlinearity f(u) = -(1/3)*sin(u)
     z = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z
-    a = torch.tensor(1.0 + 1.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
+    a = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
