@@ -253,6 +253,7 @@ def monte_carlo_simulation(phi, psi, f, z, t, a, lambda_, num_samples=1000):
 if __name__ == "__main__":
     import os
     import csv
+    import time
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Print device information
@@ -263,7 +264,7 @@ if __name__ == "__main__":
     else:
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
-    
+
     phi = lambda x: 4 * torch.arctan(torch.exp(2*x/3)) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
     psi = lambda x: (4/3)*(torch.exp(2*x/3) / (1 + torch.exp(4*x/3))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
     f = lambda u: -(1/3)*torch.sin(u) # example nonlinearity f(u) = -(1/3)*sin(u)
@@ -278,34 +279,36 @@ if __name__ == "__main__":
     # Create directory if it does not exist
     os.makedirs("results", exist_ok=True)
     output_file = "results/monte_carlo.csv"
+
+    # Initialize output file with zero placeholders (2 rows, len(t_values) columns)
+    num_t_values = len(t_values)
+    with open(output_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([0.0] * num_t_values)
+        writer.writerow([0.0] * num_t_values)
     
     for idx, t in enumerate(t_values):
+        start_time = time.perf_counter()
         result = monte_carlo_simulation(phi, psi, f, z, t.item(), a, lambda_, num_samples)
+        elapsed_time = time.perf_counter() - start_time
         real_results.append(result.real.item())
         imag_results.append(result.imag.item())
-        print(f"t={t.item():.1f}, Real part: {result.real.item():.6f}, Imaginary part: {result.imag.item():.6f}")
+        print(
+            f"t={t.item():.1f}, Real part: {result.real.item():.6f}, "
+            f"Imaginary part: {result.imag.item():.6f}, Time taken: {elapsed_time:.3f}s"
+        )
         
-        # Write results incrementally
-        if idx == 0:
-            # First iteration: overwrite file and start fresh
-            with open(output_file, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow([result.real.item()])  # write first real value
-                writer.writerow([result.imag.item()])  # write first imaginary value
-        else:
-            # Subsequent iterations: read existing data, append new value, and rewrite
-            with open(output_file, mode='r', newline='') as file:
-                reader = csv.reader(file)
-                rows = list(reader)
-            
-            # Append new values
-            rows[0].append(str(result.real.item()))
-            rows[1].append(str(result.imag.item()))
-            
-            # Write back to file
-            with open(output_file, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerows(rows)
+        # Write results incrementally by replacing the placeholder at current index
+        with open(output_file, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+
+        rows[0][idx] = str(result.real.item())
+        rows[1][idx] = str(result.imag.item())
+
+        with open(output_file, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(rows)
         
         print(f"Progress saved to {output_file}")
     
