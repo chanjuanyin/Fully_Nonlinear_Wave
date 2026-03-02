@@ -90,7 +90,9 @@ def tilde_phi(code, phi, psi, f, z1):
     form = code[0]
     alpha_1 = code[1]
     j = code[2]
-    if form == 1:
+    if form == 0:
+        return phi(z1)
+    elif form == 1:
         return 1. / (torch_factorial_int(alpha_1)) * \
             mixed_partial_orders(g = phi, inputs = (z1,), orders = [(0, alpha_1)])
     elif form == 2:
@@ -119,7 +121,9 @@ def tilde_psi(code, phi, psi, f, z1, a):
     form = code[0]
     alpha_1 = code[1]
     j = code[2]
-    if form == 1:
+    if form == 0:
+        return psi(z1)
+    elif form == 1:
         return 1. / (torch_factorial_int(alpha_1)) * \
             mixed_partial_orders(g = psi, inputs = (z1,), orders = [(0, alpha_1)])
     elif form == 2:
