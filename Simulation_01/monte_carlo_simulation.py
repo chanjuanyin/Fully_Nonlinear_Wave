@@ -213,7 +213,7 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
         i_1 = (1./2.)*tilde_phi(code, phi, psi, f, z+a*t) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z+a*t)
         i_2 = (1./2.)*tilde_phi(code, phi, psi, f, z-a*t) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z-a*t)
         i_3 = t * tilde_psi(code, phi, psi, f, z+a*t*(2*uniform-1), a) # compute \tilde{\psi}(code, phi, psi, f, z1+at(2u-1), a)
-        return (1. / (lambda_ * math.exp(-lambda_ * t))) * (i_1 + i_2 + i_3)
+        return math.exp(lambda_ * t) * (i_1 + i_2 + i_3)
     else:
         gamma_1, new_code_1, new_code_2, i = QC(code, a) # compute the next codes and coefficient using the code algebra
         # Ensure gamma_1 is a tensor on the correct device
@@ -221,9 +221,11 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
             gamma_1 = gamma_1.clone().to(dtype=torch.complex64)
         else:
             gamma_1 = torch.tensor(gamma_1, dtype=torch.complex64, device=z.device)
-        H = tau * gamma_1 / (lambda_ * math.exp(-lambda_ * tau)) # compute the coefficient H for the next codes
+        H = gamma_1 * tau * math.exp(lambda_ * tau) / lambda_ # compute the coefficient H for the next codes
         alpha = code[1] # alpha_1 of current code
-        if code[0]==2: # if current code is of form \partial^{\alpha} \circ f^{(j)}
+        if code[0]==1: # if current code is of form \partial^{\alpha}
+            H *= (1 + alpha) / (2 * torch.abs(gamma_1)) # multiply by (1+alpha) and divide by abs(gamma_1) to account for the change in the order of derivative and the coefficient from QC
+        elif code[0]==2: # if current code is of form \partial^{\alpha} \circ f^{(j)}
             H *= 3 * (1 + alpha)
             if i==1: # if the coordinate in concern is z_1
                 H *= ( torch.abs(a)**2 * (2 + alpha) * (3 + alpha) ) / (6 * torch.abs(gamma_1))
@@ -273,7 +275,7 @@ if __name__ == "__main__":
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 10000 # number of Monte Carlo samples to use for each t
+    num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("results", exist_ok=True)

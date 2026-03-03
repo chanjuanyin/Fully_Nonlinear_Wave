@@ -272,7 +272,7 @@ def branching2D(code, phi, psi, f, z1, z2, t, a, lambda_):
         i_2 = y_1 * gradient_tilde_phi('z1', code, phi, psi, f, z1+y_1, z2+y_2) + \
               y_2 * gradient_tilde_phi('z2', code, phi, psi, f, z1+y_1, z2+y_2) # compute y_1 * \nabla_{z_1} \tilde{\phi}(code, phi, psi, f, z1+y_1, z2+y_2) + y_2 * \nabla_{z_2} \tilde{\phi}(code, phi, psi, f, z1+y_1, z2+y_2)
         i_3 = t * tilde_psi(code, phi, psi, f, z1+y_1, z2+y_2, a) # compute \tilde{\psi}(code, phi, psi, f, z1+y_1, z2+y_2, a)
-        return ( 1./(lambda_*math.exp(-lambda_*t)) ) * (i_1 + i_2 + i_3)
+        return math.exp(lambda_ * t) * (i_1 + i_2 + i_3)
     else:
         gamma_1, new_code_1, new_code_2, i = QC(code, a) # compute the next codes and coefficient using the code algebra
         # Ensure gamma_1 is a tensor on the correct device
@@ -280,10 +280,12 @@ def branching2D(code, phi, psi, f, z1, z2, t, a, lambda_):
             gamma_1 = gamma_1.clone().to(dtype=torch.complex64)
         else:
             gamma_1 = torch.tensor(gamma_1, dtype=torch.complex64, device=z1.device)
-        H = tau * gamma_1 / (lambda_ * math.exp(-lambda_ * tau)) # compute the coefficient H for the next codes
+        H = gamma_1 * tau * math.exp(lambda_ * tau) / lambda_ # compute the coefficient H for the next codes
         alpha_1 = code[1] # alpha_1 of current code
         alpha_2 = code[2] # alpha_2 of current code
-        if code[0]==2: # if current code is of form \partial^{\alpha} \circ f^{(j)}
+        if code[0]==1: # if current code is of form \partial^{\alpha}
+            H *= (1 + alpha_1)* (1 + alpha_2) / (2 * torch.abs(gamma_1)) # multiply by (1 + alpha_1)* (1 + alpha_2) / (2 * abs(gamma_1)) to account for the change in the order of differentiation and the coefficient from the code algebra
+        elif code[0]==2: # if current code is of form \partial^{\alpha} \circ f^{(j)}
             H *= 4 * (1 + alpha_1)* (1 + alpha_2)
             if i==1: # if the coordinate in concern is z_1
                 H *= ( torch.abs(a)**2 * (2 + alpha_1) * (3 + alpha_1) ) / (6 * torch.abs(gamma_1))
