@@ -1,6 +1,5 @@
 import torch
 import math
-import copy
 
 def nth_derivative_scalar(f, u, order):
     """Compute f^{(j)}(u)

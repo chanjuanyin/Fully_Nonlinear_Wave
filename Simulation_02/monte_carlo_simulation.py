@@ -1,6 +1,5 @@
 import torch
 import math
-import copy
 
 def nth_derivative_scalar(f, u, order):
     """Compute f^{(j)}(u)
@@ -121,15 +120,9 @@ def tilde_phi(code, phi, psi, f, z1, z2):
 
 def gradient_tilde_phi(coordinate, code, phi, psi, f, z1, z2):
     if coordinate=='z1':
-        alpha_1 = code[1]
-        new_code = copy.deepcopy(code)
-        new_code[1] += 1 # increase alpha_1 by 1
-        return (alpha_1+1) * tilde_phi(new_code, phi, psi, f, z1, z2)
+        return mixed_partial_orders(g = lambda x_in, y_in: tilde_phi(code, phi, psi, f, x_in, y_in), inputs=(z1, z2), orders=[(0, 1), (1, 0)])
     elif coordinate=='z2':
-        alpha_2 = code[2]
-        new_code = copy.deepcopy(code)
-        new_code[2] += 1 # increase alpha_2 by 1
-        return (alpha_2+1) * tilde_phi(new_code, phi, psi, f, z1, z2)
+        return mixed_partial_orders(g = lambda x_in, y_in: tilde_phi(code, phi, psi, f, x_in, y_in), inputs=(z1, z2), orders=[(0, 0), (1, 1)])
     
 def tilde_psi(code, phi, psi, f, z1, z2, a):
     form = code[0]
@@ -348,7 +341,7 @@ if __name__ == "__main__":
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 10000 # number of Monte Carlo samples to use for each t
+    num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("results", exist_ok=True)
