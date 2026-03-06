@@ -391,13 +391,14 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    phi = lambda x1, x2, x3: 4 * torch.arctan(torch.exp(2*(x1+x2+x3)/3)) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
-    psi = lambda x1, x2, x3: (4/3)*(torch.exp(2*(x1+x2+x3)/3) / (1 + torch.exp(4*(x1+x2+x3)/3))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
-    f = lambda u: -(11/9)*torch.sin(u) # example nonlinearity f(u) = -(11/9)*sin(u)
+    w = 0.5 + 0.0j # complex number representing the point in space where we want to evaluate the solution
+    phi = lambda x1, x2, x3: 4 * torch.arctan(torch.exp((4*w/3) * (x1 + x2 + x3))) # example initial condition phi(x) = 4 * arctan(exp((4*w/3) * x))
+    psi = lambda x1, x2, x3: (8/3)*(torch.exp((4*w/3) * (x1 + x2 + x3)) / (1 + torch.exp((8*w/3) * (x1 + x2 + x3)))) # example initial condition psi(x) = (8/3)*(exp((4*w/3) * x) / (1 + exp((8*w/3) * x)))
+    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*w^2/3)*sin(u)
     z1 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
     z2 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
     z3 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z3
-    a = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
+    a = torch.tensor((1.0/math.sqrt(3)) + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []

@@ -333,12 +333,13 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    phi = lambda x1, x2: 4 * torch.arctan(torch.exp(2*(x1+x2)/3)) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
-    psi = lambda x1, x2: (4/3)*(torch.exp(2*(x1+x2)/3) / (1 + torch.exp(4*(x1+x2)/3))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
-    f = lambda u: -(7/9)*torch.sin(u) # example nonlinearity f(u) = -(7/9)*sin(u)
+    w = 0.5 + 0.0j # example complex number representing the wave speed
+    phi = lambda x1, x2: 4 * torch.arctan(torch.exp((4*w/3)*(x1+x2))) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
+    psi = lambda x1, x2: (8*w/3)*(torch.exp((4*w/3)*(x1+x2)) / (1 + torch.exp((8*w/3)*(x1+x2)))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
+    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*w^2/3)*sin(u)
     z1 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
     z2 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
-    a = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
+    a = torch.tensor((1.0/math.sqrt(2)) + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
@@ -346,8 +347,8 @@ if __name__ == "__main__":
     num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
-    os.makedirs("results", exist_ok=True)
-    output_file = "results/monte_carlo.csv"
+    os.makedirs("real_d2_results", exist_ok=True)
+    output_file = "real_d2_results/monte_carlo.csv"
 
     # Initialize output file with zero placeholders (2 rows, len(t_values) columns)
     num_t_values = len(t_values)

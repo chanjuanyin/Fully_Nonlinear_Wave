@@ -266,9 +266,10 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    phi = lambda x: 4 * torch.arctan(torch.exp(2*x/3)) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
-    psi = lambda x: (4/3)*(torch.exp(2*x/3) / (1 + torch.exp(4*x/3))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
-    f = lambda u: -(1/3)*torch.sin(u) # example nonlinearity f(u) = -(1/3)*sin(u)
+    w = 0.5 + 0.0j  # complex constant
+    phi = lambda x: 4 * torch.arctan(torch.exp((4*w/3) * x)) # example initial condition phi(x) = 4 * arctan(exp(4*w/3 * x))
+    psi = lambda x: (8*w/3)*(torch.exp((4*w/3) * x) / (1 + torch.exp((8*w/3) * x))) # example initial condition psi(x) = (8*w/3)*(exp(4*w/3 * x) / (1 + exp(8*w/3 * x)))
+    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*(w**2)/3)*sin(u)
     z = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z
     a = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
@@ -278,8 +279,8 @@ if __name__ == "__main__":
     num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
-    os.makedirs("results", exist_ok=True)
-    output_file = "results/monte_carlo.csv"
+    os.makedirs("real_d1_results", exist_ok=True)
+    output_file = "real_d1_results/monte_carlo.csv"
 
     # Initialize output file with zero placeholders (2 rows, len(t_values) columns)
     num_t_values = len(t_values)
