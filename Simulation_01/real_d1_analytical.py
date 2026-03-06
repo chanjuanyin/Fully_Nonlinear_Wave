@@ -4,8 +4,8 @@ import csv
 
 def u_analytical(z, t):
     """
-    Analytical solution: u(z, t) = 4 * arctan(exp((4*w/3) * (z + t/2)))
-    where w is a complex constant (0.5 + 0j).
+    Analytical solution: u(z, t) = 4 * arctan(exp((4*omega/3) * (z + t/2)))
+    where omega is a complex constant (0.5 + 0j).
     
     Args:
         z: complex tensor, spatial coordinate
@@ -14,8 +14,8 @@ def u_analytical(z, t):
     Returns:
         complex tensor: value of u at (z, t)
     """
-    w = 0.5 + 0.0j  # complex constant
-    return 4 * torch.arctan(torch.exp((4*w/3.0) * (z + t/2.0)))
+    omega = 0.5 + 0.0j  # complex constant
+    return 4 * torch.arctan(torch.exp((4*omega/3.0) * (z + t/2.0)))
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

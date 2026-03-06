@@ -297,8 +297,10 @@ def branching2D(code, phi, psi, f, z1, z2, t, a, lambda_):
                 H *= ( torch.abs(a)**2 * (2 + alpha_1) * (3 + alpha_1) ) / (6 * torch.abs(gamma_1))
             if i==2: # if the coordinate in concern is z_2
                 H *= ( torch.abs(a)**2 * (2 + alpha_2) * (3 + alpha_2) ) / (6 * torch.abs(gamma_1))
-        elif code[0]==4 or code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_t or \partial^{\alpha} \circ \partial_{tt}
-            H *= (1 + alpha_1)* (1 + alpha_2)
+        elif code[0]==4: # if current code is of form \partial^{\alpha} \circ \partial_t
+            H *= (1 + alpha_1) * (1 + alpha_2)
+        elif code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_{tt}
+            H *= 2 * (1 + alpha_1) * (1 + alpha_2)
         r = tau * math.sqrt(1-(1-uniform)**2) # radius of the disk from which we sample the spatial point
         y_1 = a * r * math.cos(theta) # spatial point z_1 = a * r * cos(theta)
         y_2 = a * r * math.sin(theta) # spatial point z_2 = a * r * sin(theta)
@@ -333,10 +335,10 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    w = 0.5 + 0.0j # example complex number representing the wave speed
-    phi = lambda x1, x2: 4 * torch.arctan(torch.exp((4*w/3)*(x1+x2))) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
-    psi = lambda x1, x2: (8*w/3)*(torch.exp((4*w/3)*(x1+x2)) / (1 + torch.exp((8*w/3)*(x1+x2)))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
-    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*w^2/3)*sin(u)
+    omega = 0.5 + 0.0j # example complex number representing the wave speed
+    phi = lambda x1, x2: 4 * torch.arctan(torch.exp((4*omega/3)*(x1+x2))) # example initial condition phi(x) = 4 * arctan(exp(2x/3))
+    psi = lambda x1, x2: (8*omega/3)*(torch.exp((4*omega/3)*(x1+x2)) / (1 + torch.exp((8*omega/3)*(x1+x2)))) # example initial condition psi(x) = (4/3)*(exp(2x/3) / (1 + exp(4x/3)))
+    f = lambda u: -(4*(omega**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*omega^2/3)*sin(u)
     z1 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
     z2 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
     a = torch.tensor((1.0/math.sqrt(2)) + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
@@ -344,7 +346,7 @@ if __name__ == "__main__":
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 100000 # number of Monte Carlo samples to use for each t
+    num_samples = 10000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("real_d2_results", exist_ok=True)

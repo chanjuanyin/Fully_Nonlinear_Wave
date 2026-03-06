@@ -4,8 +4,9 @@ import csv
 
 def u_analytical(z1, z2, z3, t):
     """
-    Analytical solution: u(z1, z2, z3, t) = 4 * arctan(exp((4*w/3) * (i*z1 + i*z2 + i*z3 + t/2)))
-    
+    Analytical solution: u(z1, z2, z3, t) = 4 * arctan(exp((4*omega/3) * (i*z1 + i*z2 + i*z3 + t/2)))
+    where omega is a complex constant (0.5 + 0j).
+
     Args:
         z1: complex tensor, spatial coordinate
         z2: complex tensor, spatial coordinate
@@ -15,16 +16,16 @@ def u_analytical(z1, z2, z3, t):
     Returns:
         complex tensor: value of u at (z1, z2, z3, t)
     """
-    w = 0.5 + 0.0j  # complex constant
-    return 4 * torch.arctan(torch.exp((4*w/3.0) * (1j*z1 + 1j*z2 + 1j*z3 + t/2.0)))
+    omega = 0.5 + 0.0j  # complex constant
+    return 4 * torch.arctan(torch.exp((4*omega/3.0) * (1j*z1 + 1j*z2 + 1j*z3 + t/2.0)))
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Initial spatial point (complex)
-    z1 = torch.tensor(0.0 + 1.0j, dtype=torch.complex64, device=device)
-    z2 = torch.tensor(0.0 + 1.0j, dtype=torch.complex64, device=device)
-    z3 = torch.tensor(0.0 + 1.0j, dtype=torch.complex64, device=device)
+    z1 = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device)
+    z2 = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device)
+    z3 = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device)
     
     # Time values from 0 to 1 with step 0.01
     t_values = torch.arange(0, 1.01, 0.01)

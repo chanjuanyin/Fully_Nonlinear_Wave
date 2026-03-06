@@ -354,8 +354,10 @@ def branching3D(code, phi, psi, f, z1, z2, z3, t, a, lambda_):
                 H *= ( torch.abs(a)**2 * (2 + alpha_2) * (3 + alpha_2) ) / (6 * torch.abs(gamma_1))
             if i==3: # if the coordinate in concern is z_3
                 H *= ( torch.abs(a)**2 * (2 + alpha_3) * (3 + alpha_3) ) / (6 * torch.abs(gamma_1))
-        elif code[0]==4 or code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_t or \partial^{\alpha} \circ \partial_{tt}
-            H *= (1 + alpha_1)* (1 + alpha_2)* (1 + alpha_3)
+        elif code[0]==4: # if current code is of form \partial^{\alpha} \circ \partial_t
+            H *= (1 + alpha_1) * (1 + alpha_2) * (1 + alpha_3)
+        elif code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_{tt}
+            H *= 2 * (1 + alpha_1) * (1 + alpha_2) * (1 + alpha_3)
         eta = math.acos(1-2*uniform) # eta = arccos(1-2U)
         y_1 = a * tau * math.sin(eta) * math.cos(theta) # spatial point z_1 = a * r * cos(theta)
         y_2 = a * tau * math.sin(eta) * math.sin(theta) # spatial point z_2 = a * r * sin(theta)
@@ -391,19 +393,19 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    w = 0.5 + 0.0j # complex number representing the point in space where we want to evaluate the solution
-    phi = lambda x1, x2, x3: 4 * torch.arctan(torch.exp((4*w/3) * (1j*x1 + 1j*x2 + 1j*x3))) # example initial condition phi(x) = 4 * arctan(exp((4*w/3) * x))
-    psi = lambda x1, x2, x3: (8/3)*(torch.exp((4*w/3) * (1j*x1 + 1j*x2 + 1j*x3)) / (1 + torch.exp((8*w/3) * (1j*x1 + 1j*x2 + 1j*x3)))) # example initial condition psi(x) = (8/3)*(exp((4*w/3) * x) / (1 + exp((8*w/3) * x)))
-    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*w^2/3)*sin(u)
-    z1 = torch.tensor(0.0 + 1.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
-    z2 = torch.tensor(0.0 + 1.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
-    z3 = torch.tensor(0.0 + 1.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z3
+    omega = 0.5 + 0.0j # complex number representing the point in space where we want to evaluate the solution
+    phi = lambda x1, x2, x3: 4 * torch.arctan(torch.exp((4*omega/3) * (1j*x1 + 1j*x2 + 1j*x3))) # example initial condition phi(x) = 4 * arctan(exp((4*omega/3) * x))
+    psi = lambda x1, x2, x3: (8/3)*(torch.exp((4*omega/3) * (1j*x1 + 1j*x2 + 1j*x3)) / (1 + torch.exp((8*omega/3) * (1j*x1 + 1j*x2 + 1j*x3)))) # example initial condition psi(x) = (8/3)*(exp((4*omega/3) * x) / (1 + exp((8*omega/3) * x)))
+    f = lambda u: -(4*(omega**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*omega^2/3)*sin(u)
+    z1 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
+    z2 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
+    z3 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z3
     a = torch.tensor(0.0 + (1.0/math.sqrt(3))*1j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 100000 # number of Monte Carlo samples to use for each t
+    num_samples = 10000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("complex_d3_results", exist_ok=True)

@@ -233,8 +233,10 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
             H *= 6 * (1 + alpha)
             if i==1: # if the coordinate in concern is z_1
                 H *= ( torch.abs(a)**2 * (2 + alpha) * (3 + alpha) ) / (6 * torch.abs(gamma_1))
-        elif code[0]==4 or code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_t or \partial^{\alpha} \circ \partial_{tt}
+        elif code[0]==4: # if current code is of form \partial^{\alpha} \circ \partial_t
             H *= (1 + alpha)
+        elif code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_{tt}
+            H *= 2 * (1 + alpha)
         H *= branching1D(new_code_1, phi, psi, f, z+a*tau*(2*uniform-1), t-tau, a, lambda_) # compute the contribution from the next code
         if new_code_2 is not None: # if there is a second next code
             H *= branching1D(new_code_2, phi, psi, f, z+a*tau*(2*uniform-1), t-tau, a, lambda_) # compute the contribution from the second next code
@@ -266,17 +268,17 @@ if __name__ == "__main__":
         print("CUDA not available; using CPU")
     print(f"Device: {device}\n")
 
-    w = 0.5 + 0.0j  # complex constant
-    phi = lambda x: 4 * torch.arctan(torch.exp((4*w/3) * x)) # example initial condition phi(x) = 4 * arctan(exp(4*w/3 * x))
-    psi = lambda x: (8*w/3)*(torch.exp((4*w/3) * x) / (1 + torch.exp((8*w/3) * x))) # example initial condition psi(x) = (8*w/3)*(exp(4*w/3 * x) / (1 + exp(8*w/3 * x)))
-    f = lambda u: -(4*(w**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*(w**2)/3)*sin(u)
+    omega = 0.5 + 0.0j  # complex constant
+    phi = lambda x: 4 * torch.arctan(torch.exp((4*omega/3) * x)) # example initial condition phi(x) = 4 * arctan(exp(4*omega/3 * x))
+    psi = lambda x: (8*omega/3)*(torch.exp((4*omega/3) * x) / (1 + torch.exp((8*omega/3) * x))) # example initial condition psi(x) = (8*omega/3)*(exp(4*omega/3 * x) / (1 + exp(8*omega/3 * x)))
+    f = lambda u: -(4*(omega**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*(omega**2)/3)*sin(u)
     z = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z
     a = torch.tensor(1.0 + 0.0j, dtype=torch.complex64, device=device) # complex number representing the spatial scaling factor
     lambda_ = 1.0 # real number, rate parameter for the exponential distribution governing the waiting times in the branching process
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 100000 # number of Monte Carlo samples to use for each t
+    num_samples = 10000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("real_d1_results", exist_ok=True)
