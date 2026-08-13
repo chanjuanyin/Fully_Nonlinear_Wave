@@ -28,6 +28,9 @@ def nth_derivative_scalar(f, u, order):
         
         grad_out = torch.ones_like(y, dtype=y.dtype, device=y.device)
         (y,) = torch.autograd.grad(y, u, grad_outputs=grad_out, create_graph=True, retain_graph=True)
+        # PyTorch's complex autograd returns the CONJUGATE Wirtinger derivative;
+        # for holomorphic functions conj() recovers the true derivative f'(z).
+        y = y.conj()
     return y
 
 def mixed_partial_orders(g, inputs, orders):
@@ -63,6 +66,9 @@ def mixed_partial_orders(g, inputs, orders):
             create_graph=True, # always create graph for chained derivatives
             retain_graph=True  # always retain graph for multiple derivative paths
         )
+        # PyTorch's complex autograd returns the CONJUGATE Wirtinger derivative;
+        # for holomorphic functions conj() recovers the true derivative.
+        y = y.conj()
     return y
 
 def torch_factorial_int(alpha_1: int, device=None) -> torch.Tensor:
@@ -85,7 +91,7 @@ def torch_factorial_int(alpha_1: int, device=None) -> torch.Tensor:
 # [4, \alpha_1, -1] means \frac{1}{\alpha_1!} \partial_{z_1}^{\alpha_1} \partial_t
 # [5, \alpha_1, -1] means \frac{1}{\alpha_1!} \partial_{z_1}^{\alpha_1} \partial_{tt}
 
-def tilde_phi(code, phi, psi, f, z1):
+def tilde_phi(code, phi, psi, f, z1, a):
     form = code[0]
     alpha_1 = code[1]
     j = code[2]
@@ -112,10 +118,10 @@ def tilde_phi(code, phi, psi, f, z1):
     elif form == 5:
         return 1. / (torch_factorial_int(alpha_1)) * \
             (
-                mixed_partial_orders(g = phi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
                 mixed_partial_orders(g = lambda x_in: f(phi(x_in)), inputs=(z1,), orders=[(0, alpha_1)])
             )
-    
+
 def tilde_psi(code, phi, psi, f, z1, a):
     form = code[0]
     alpha_1 = code[1]
@@ -139,15 +145,15 @@ def tilde_psi(code, phi, psi, f, z1, a):
     elif form == 4:
         return 1. / (torch_factorial_int(alpha_1)) * \
             (
-                mixed_partial_orders(g = phi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
                 mixed_partial_orders(g = lambda x_in: f(phi(x_in)), inputs=(z1,), orders=[(0, alpha_1)])
             )
     elif form == 5:
         return 1. / (torch_factorial_int(alpha_1)) * \
             (
-                mixed_partial_orders(g = psi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
-                mixed_partial_orders(g = lambda x_in: psi(x_in) * nth_derivative_scalar(f, phi(x_in), 1), 
-                                     inputs=(z1,), 
+                a**2 * mixed_partial_orders(g = psi, inputs=(z1,), orders=[(0, alpha_1 + 2)]) + \
+                mixed_partial_orders(g = lambda x_in: psi(x_in) * nth_derivative_scalar(f, phi(x_in), 1),
+                                     inputs=(z1,),
                                      orders=[(0, alpha_1)])
             )
 
@@ -210,8 +216,8 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
     tau = torch.distributions.Exponential(lambda_).sample().item() # sample waiting time tau from exponential distribution with rate lambda    
     uniform = torch.rand(1).item()  # sample U uniformly from [0, 1]
     if tau >= t:
-        i_1 = (1./2.)*tilde_phi(code, phi, psi, f, z+a*t) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z+a*t)
-        i_2 = (1./2.)*tilde_phi(code, phi, psi, f, z-a*t) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z-a*t)
+        i_1 = (1./2.)*tilde_phi(code, phi, psi, f, z+a*t, a) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z+a*t)
+        i_2 = (1./2.)*tilde_phi(code, phi, psi, f, z-a*t, a) # compute \frac{1}{2}\tilde{\phi}(code, phi, psi, f, z-a*t)
         i_3 = t * tilde_psi(code, phi, psi, f, z+a*t*(2*uniform-1), a) # compute \tilde{\psi}(code, phi, psi, f, z1+at(2u-1), a)
         return math.exp(lambda_ * t) * (i_1 + i_2 + i_3)
     else:
@@ -230,9 +236,9 @@ def branching1D(code, phi, psi, f, z, t, a, lambda_):
             if i==1: # if the coordinate in concern is z_1
                 H *= ( torch.abs(a)**2 * (2 + alpha) * (3 + alpha) ) / (6 * torch.abs(gamma_1))
         elif code[0]==3: # if current code is of form \partial^{\alpha} \circ ((\partial_t(\cdot))^2)
-            H *= 6 * (1 + alpha)
+            H *= 3 * (1 + alpha)
             if i==1: # if the coordinate in concern is z_1
-                H *= ( torch.abs(a)**2 * (2 + alpha) * (3 + alpha) ) / (6 * torch.abs(gamma_1))
+                H *= ( torch.abs(a)**2 * (2 + alpha) * (3 + alpha) ) / (3 * torch.abs(gamma_1))
         elif code[0]==4: # if current code is of form \partial^{\alpha} \circ \partial_t
             H *= (1 + alpha)
         elif code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_{tt}
@@ -251,21 +257,20 @@ def monte_carlo_simulation(phi, psi, f, z, t, a, lambda_, num_samples=1000):
         results = [future.result() for future in futures]
     # Detach results to avoid gradient warnings when creating a tensor
     results_detached = [r.detach() if isinstance(r, torch.Tensor) else r for r in results]
-    return torch.mean(torch.tensor(results_detached))
+    samples = torch.tensor(results_detached)
+    mean = torch.mean(samples)
+    # Standard error of the mean, real and imaginary parts separately
+    se_real = (torch.std(samples.real) / math.sqrt(num_samples)).item()
+    se_imag = (torch.std(samples.imag) / math.sqrt(num_samples)).item()
+    return mean, se_real, se_imag
 
 if __name__ == "__main__":
     import os
     import csv
     import time
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Print device information
-    if torch.cuda.is_available():
-        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
-        print(f"CUDA device count: {torch.cuda.device_count()}")
-        print(f"Current CUDA device: {torch.cuda.current_device()}")
-    else:
-        print("CUDA not available; using CPU")
+    # NOTE: CPU is ~4x faster than GPU for this workload — the tree recursion
+    # operates on single complex scalars, so GPU kernel-launch overhead dominates.
+    device = torch.device("cpu")
     print(f"Device: {device}\n")
 
     omega = 0.5 + 0.0j  # complex constant
@@ -278,7 +283,7 @@ if __name__ == "__main__":
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 10000 # number of Monte Carlo samples to use for each t
+    num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("real_d1_results", exist_ok=True)
@@ -286,20 +291,21 @@ if __name__ == "__main__":
 
     # Initialize output file with zero placeholders (2 rows, len(t_values) columns)
     num_t_values = len(t_values)
+    # Rows: mean real, mean imag, stderr real, stderr imag
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([0.0] * num_t_values)
-        writer.writerow([0.0] * num_t_values)
+        for _ in range(4):
+            writer.writerow([0.0] * num_t_values)
     
     for idx, t in enumerate(t_values):
         start_time = time.perf_counter()
-        result = monte_carlo_simulation(phi, psi, f, z, t.item(), a, lambda_, num_samples)
+        result, se_real, se_imag = monte_carlo_simulation(phi, psi, f, z, t.item(), a, lambda_, num_samples)
         elapsed_time = time.perf_counter() - start_time
         real_results.append(result.real.item())
         imag_results.append(result.imag.item())
         print(
-            f"t={t.item():.1f}, Real part: {result.real.item():.6f}, "
-            f"Imaginary part: {result.imag.item():.6f}, Time taken: {elapsed_time:.3f}s"
+            f"t={t.item():.1f}, Real part: {result.real.item():.6f} (SE {se_real:.6f}), "
+            f"Imaginary part: {result.imag.item():.6f} (SE {se_imag:.6f}), Time taken: {elapsed_time:.3f}s"
         )
         
         # Write results incrementally by replacing the placeholder at current index
@@ -309,6 +315,8 @@ if __name__ == "__main__":
 
         rows[0][idx] = str(result.real.item())
         rows[1][idx] = str(result.imag.item())
+        rows[2][idx] = str(se_real)
+        rows[3][idx] = str(se_imag)
 
         with open(output_file, mode='w', newline='') as file:
             writer = csv.writer(file)

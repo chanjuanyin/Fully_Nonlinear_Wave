@@ -28,6 +28,9 @@ def nth_derivative_scalar(f, u, order):
         
         grad_out = torch.ones_like(y, dtype=y.dtype, device=y.device)
         (y,) = torch.autograd.grad(y, u, grad_outputs=grad_out, create_graph=True, retain_graph=True)
+        # PyTorch's complex autograd returns the CONJUGATE Wirtinger derivative;
+        # for holomorphic functions conj() recovers the true derivative f'(z).
+        y = y.conj()
     return y
 
 def mixed_partial_orders(g, inputs, orders):
@@ -63,6 +66,9 @@ def mixed_partial_orders(g, inputs, orders):
             create_graph=True, # always create graph for chained derivatives
             retain_graph=True  # always retain graph for multiple derivative paths
         )
+        # PyTorch's complex autograd returns the CONJUGATE Wirtinger derivative;
+        # for holomorphic functions conj() recovers the true derivative.
+        y = y.conj()
     return y
 
 def torch_factorial_int(alpha_1: int, device=None) -> torch.Tensor:
@@ -85,7 +91,7 @@ def torch_factorial_int(alpha_1: int, device=None) -> torch.Tensor:
 # [4, \alpha_1, \alpha_2, \alpha_3, -1] means \frac{1}{\alpha_1! \alpha_2! \alpha_3!} \partial_{z_1}^{\alpha_1} \partial_{z_2}^{\alpha_2} \partial_{z_2}^{\alpha_3} \partial_t
 # [5, \alpha_1, \alpha_2, \alpha_3, -1] means \frac{1}{\alpha_1! \alpha_2! \alpha_3!} \partial_{z_1}^{\alpha_1} \partial_{z_2}^{\alpha_2} \partial_{z_2}^{\alpha_3} \partial_{tt}
 
-def tilde_phi(code, phi, psi, f, z1, z2, z3):
+def tilde_phi(code, phi, psi, f, z1, z2, z3, a):
     form = code[0]
     alpha_1 = code[1]
     alpha_2 = code[2]
@@ -114,19 +120,19 @@ def tilde_phi(code, phi, psi, f, z1, z2, z3):
     elif form == 5:
         return 1. / (torch_factorial_int(alpha_1) * torch_factorial_int(alpha_2) * torch_factorial_int(alpha_3)) * \
             (
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
                 mixed_partial_orders(g = lambda x_in, y_in, z_in: f(phi(x_in, y_in, z_in)), inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3)])
             )
 
-def gradient_tilde_phi(coordinate, code, phi, psi, f, z1, z2, z3):
+def gradient_tilde_phi(coordinate, code, phi, psi, f, z1, z2, z3, a):
     if coordinate=='z1':
-        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in), inputs=(z1, z2, z3), orders=[(0, 1), (1, 0), (2, 0)])
+        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in, a), inputs=(z1, z2, z3), orders=[(0, 1), (1, 0), (2, 0)])
     elif coordinate=='z2':
-        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in), inputs=(z1, z2, z3), orders=[(0, 0), (1, 1), (2, 0)])
+        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in, a), inputs=(z1, z2, z3), orders=[(0, 0), (1, 1), (2, 0)])
     elif coordinate=='z3':
-        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in), inputs=(z1, z2, z3), orders=[(0, 0), (1, 0), (2, 1)])
+        return mixed_partial_orders(g = lambda x_in, y_in, z_in: tilde_phi(code, phi, psi, f, x_in, y_in, z_in, a), inputs=(z1, z2, z3), orders=[(0, 0), (1, 0), (2, 1)])
 
 def tilde_psi(code, phi, psi, f, z1, z2, z3, a):
     form = code[0]
@@ -163,19 +169,19 @@ def tilde_psi(code, phi, psi, f, z1, z2, z3, a):
     elif form == 4:
         return 1. / (torch_factorial_int(alpha_1) * torch_factorial_int(alpha_2) * torch_factorial_int(alpha_3)) * \
             (
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = phi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
                 mixed_partial_orders(g = lambda x_in, y_in, z_in: f(phi(x_in, y_in, z_in)), inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3)])
             )
     elif form == 5:
         return 1. / (torch_factorial_int(alpha_1) * torch_factorial_int(alpha_2) * torch_factorial_int(alpha_3)) * \
             (
-                mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
-                mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
-                mixed_partial_orders(g = lambda x_in, y_in, z_in: psi(x_in, y_in, z_in) * nth_derivative_scalar(f, phi(x_in, y_in, z_in), 1), 
-                                     inputs=(z1, z2, z3), 
+                a**2 * mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1 + 2), (1, alpha_2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2 + 2), (2, alpha_3)]) + \
+                a**2 * mixed_partial_orders(g = psi, inputs=(z1, z2, z3), orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3 + 2)]) + \
+                mixed_partial_orders(g = lambda x_in, y_in, z_in: psi(x_in, y_in, z_in) * nth_derivative_scalar(f, phi(x_in, y_in, z_in), 1),
+                                     inputs=(z1, z2, z3),
                                      orders=[(0, alpha_1), (1, alpha_2), (2, alpha_3)]
                                      )
             )
@@ -319,10 +325,10 @@ def branching3D(code, phi, psi, f, z1, z2, z3, t, a, lambda_):
         y_1 = a * t * math.sin(eta) * math.cos(theta) # spatial point z_1 = a * r * cos(theta)
         y_2 = a * t * math.sin(eta) * math.sin(theta) # spatial point z_2 = a * r * sin(theta)
         y_3 = a * t * math.cos(eta) # spatial point z_3 = a * r * cos(eta)
-        i_1 = tilde_phi(code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3) # compute \tilde{\phi}(code, phi, psi, f, z1+y_1, z2+y_2, z_3+y_3)
-        i_2 = y_1 * gradient_tilde_phi('z1', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3) + \
-              y_2 * gradient_tilde_phi('z2', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3) + \
-              y_3 * gradient_tilde_phi('z3', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3) # compute y_1 * \nabla_{z_1} \tilde{\phi}(code, phi, psi, f, z1+y_1,z2+y_2,z3+y_3) + y_2 * \nabla_{z_2} \tilde{\phi}(code, phi, psi,f,z1+y_1,z2+y_2,z3+y_3) + y_3 * \nabla_{z_3} \tilde{\phi}(code,\phi,\psi,f,z1+y_1,z2+y_2,z3+y_3)
+        i_1 = tilde_phi(code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3, a) # compute \tilde{\phi}(code, phi, psi, f, z1+y_1, z2+y_2, z_3+y_3)
+        i_2 = y_1 * gradient_tilde_phi('z1', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3, a) + \
+              y_2 * gradient_tilde_phi('z2', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3, a) + \
+              y_3 * gradient_tilde_phi('z3', code, phi, psi, f, z1+y_1, z2+y_2, z3+y_3, a) # compute y_1 * \nabla_{z_1} \tilde{\phi}(code, phi, psi, f, z1+y_1,z2+y_2,z3+y_3) + y_2 * \nabla_{z_2} \tilde{\phi}(code, phi, psi,f,z1+y_1,z2+y_2,z3+y_3) + y_3 * \nabla_{z_3} \tilde{\phi}(code,\phi,\psi,f,z1+y_1,z2+y_2,z3+y_3)
         i_3 = t * tilde_psi(code, phi, psi,f,z1+y_1,z2+y_2,z3+y_3,a) # compute \tilde{\psi}(code,\phi,\psi,f,z1+z_y,z2+z_y,z3+z_z,a)
         return math.exp(lambda_ * t) * (i_1 + i_2 + i_3)
     else:
@@ -347,13 +353,13 @@ def branching3D(code, phi, psi, f, z1, z2, z3, t, a, lambda_):
             if i==3: # if the coordinate in concern is z_3
                 H *= ( torch.abs(a)**2 * (2 + alpha_3) * (3 + alpha_3) ) / (6 * torch.abs(gamma_1))
         elif code[0]==3: # if current code is of form \partial^{\alpha} \circ ((\partial_t(\cdot))^2)
-            H *= 10 * (1 + alpha_1)* (1 + alpha_2)* (1 + alpha_3)
+            H *= 5 * (1 + alpha_1)* (1 + alpha_2)* (1 + alpha_3)
             if i==1: # if the coordinate in concern is z_1
-                H *= ( torch.abs(a)**2 * (2 + alpha_1) * (3 + alpha_1) ) / (6 * torch.abs(gamma_1))
+                H *= ( torch.abs(a)**2 * (2 + alpha_1) * (3 + alpha_1) ) / (3 * torch.abs(gamma_1))
             if i==2: # if the coordinate in concern is z_2
-                H *= ( torch.abs(a)**2 * (2 + alpha_2) * (3 + alpha_2) ) / (6 * torch.abs(gamma_1))
+                H *= ( torch.abs(a)**2 * (2 + alpha_2) * (3 + alpha_2) ) / (3 * torch.abs(gamma_1))
             if i==3: # if the coordinate in concern is z_3
-                H *= ( torch.abs(a)**2 * (2 + alpha_3) * (3 + alpha_3) ) / (6 * torch.abs(gamma_1))
+                H *= ( torch.abs(a)**2 * (2 + alpha_3) * (3 + alpha_3) ) / (3 * torch.abs(gamma_1))
         elif code[0]==4: # if current code is of form \partial^{\alpha} \circ \partial_t
             H *= (1 + alpha_1) * (1 + alpha_2) * (1 + alpha_3)
         elif code[0]==5: # if current code is of form \partial^{\alpha} \circ \partial_{tt}
@@ -376,26 +382,25 @@ def monte_carlo_simulation(phi, psi, f, z1, z2, z3, t, a, lambda_, num_samples=1
         results = [future.result() for future in futures]
     # Detach results to avoid gradient warnings when creating a tensor
     results_detached = [r.detach() if isinstance(r, torch.Tensor) else r for r in results]
-    return torch.mean(torch.tensor(results_detached))
+    samples = torch.tensor(results_detached)
+    mean = torch.mean(samples)
+    # Standard error of the mean, real and imaginary parts separately
+    se_real = (torch.std(samples.real) / math.sqrt(num_samples)).item()
+    se_imag = (torch.std(samples.imag) / math.sqrt(num_samples)).item()
+    return mean, se_real, se_imag
 
 if __name__ == "__main__":
     import os
     import csv
     import time
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Print device information
-    if torch.cuda.is_available():
-        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
-        print(f"CUDA device count: {torch.cuda.device_count()}")
-        print(f"Current CUDA device: {torch.cuda.current_device()}")
-    else:
-        print("CUDA not available; using CPU")
+    # NOTE: CPU is ~4x faster than GPU for this workload — the tree recursion
+    # operates on single complex scalars, so GPU kernel-launch overhead dominates.
+    device = torch.device("cpu")
     print(f"Device: {device}\n")
 
     omega = 0.5 + 0.0j # complex number representing the point in space where we want to evaluate the solution
     phi = lambda x1, x2, x3: 4 * torch.arctan(torch.exp((4*omega/3) * (x1 + x2 + x3))) # example initial condition phi(x) = 4 * arctan(exp((4*omega/3) * x))
-    psi = lambda x1, x2, x3: (8/3)*(torch.exp((4*omega/3) * (x1 + x2 + x3)) / (1 + torch.exp((8*omega/3) * (x1 + x2 + x3)))) # example initial condition psi(x) = (8/3)*(exp((4*omega/3) * x) / (1 + exp((8*omega/3) * x)))
+    psi = lambda x1, x2, x3: (8*omega/3)*(torch.exp((4*omega/3) * (x1 + x2 + x3)) / (1 + torch.exp((8*omega/3) * (x1 + x2 + x3)))) # example initial condition psi(x) = (8*omega/3)*(exp((4*omega/3) * x) / (1 + exp((8*omega/3) * x)))
     f = lambda u: -(4*(omega**2)/3)*torch.sin(u) # example nonlinearity f(u) = -(4*omega^2/3)*sin(u)
     z1 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z1
     z2 = torch.tensor(1.0 + 0.0j, requires_grad=True, device=device) # complex number with requires_grad=True to enable differentiation, representing the initial spatial point z2
@@ -405,7 +410,7 @@ if __name__ == "__main__":
     t_values = torch.arange(0, 1.1, 0.1) # list of t values from 0 to 1 with step 0.1
     real_results = []
     imag_results = []
-    num_samples = 10000 # number of Monte Carlo samples to use for each t
+    num_samples = 100000 # number of Monte Carlo samples to use for each t
     
     # Create directory if it does not exist
     os.makedirs("real_d3_results", exist_ok=True)
@@ -413,20 +418,21 @@ if __name__ == "__main__":
 
     # Initialize output file with zero placeholders (2 rows, len(t_values) columns)
     num_t_values = len(t_values)
+    # Rows: mean real, mean imag, stderr real, stderr imag
     with open(output_file, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([0.0] * num_t_values)
-        writer.writerow([0.0] * num_t_values)
+        for _ in range(4):
+            writer.writerow([0.0] * num_t_values)
     
     for idx, t in enumerate(t_values):
         start_time = time.perf_counter()
-        result = monte_carlo_simulation(phi, psi, f, z1, z2, z3, t.item(), a, lambda_, num_samples)
+        result, se_real, se_imag = monte_carlo_simulation(phi, psi, f, z1, z2, z3, t.item(), a, lambda_, num_samples)
         elapsed_time = time.perf_counter() - start_time
         real_results.append(result.real.item())
         imag_results.append(result.imag.item())
         print(
-            f"t={t.item():.1f}, Real part: {result.real.item():.6f}, "
-            f"Imaginary part: {result.imag.item():.6f}, Time taken: {elapsed_time:.3f}s"
+            f"t={t.item():.1f}, Real part: {result.real.item():.6f} (SE {se_real:.6f}), "
+            f"Imaginary part: {result.imag.item():.6f} (SE {se_imag:.6f}), Time taken: {elapsed_time:.3f}s"
         )
         
         # Write results incrementally by replacing the placeholder at current index
@@ -436,6 +442,8 @@ if __name__ == "__main__":
 
         rows[0][idx] = str(result.real.item())
         rows[1][idx] = str(result.imag.item())
+        rows[2][idx] = str(se_real)
+        rows[3][idx] = str(se_imag)
 
         with open(output_file, mode='w', newline='') as file:
             writer = csv.writer(file)
